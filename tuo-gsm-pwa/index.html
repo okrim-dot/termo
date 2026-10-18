@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Termostato</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0f766e">
+<meta name="color-scheme" content="light dark">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Termostato">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="top">
+    <div class="brand">
+      <h1>Termostato</h1>
+      <p id="freshness" class="muted">Nessun dato ancora</p>
+    </div>
+    <button id="btnRefresh" class="btn primary" type="button">Aggiorna</button>
+  </header>
+
+  <div id="pending" class="banner" role="status" hidden>
+    <p id="pendingText"></p>
+    <div class="row">
+      <button id="btnPastePending" class="btn primary small" type="button">Incolla risposta</button>
+      <button id="btnDismissPending" class="btn ghost small" type="button">Chiudi</button>
+    </div>
+  </div>
+
+  <!-- STATO -->
+  <section id="status" class="card hero" aria-live="polite" aria-label="Stato del termostato">
+    <div id="emptyState" class="empty">
+      <p><strong>Nessun dato.</strong> Premi <em>Aggiorna</em>: si apre Messaggi con la richiesta gi&agrave; scritta. Quando il termostato risponde, torna qui e premi <em>Incolla risposta</em>.</p>
+    </div>
+    <div id="statusBody" hidden>
+      <div class="hero-main">
+        <div class="temp" aria-label="Temperatura misurata"><span id="tInt">--.-</span><span class="unit">&deg;C</span></div>
+        <div class="hero-side">
+          <div class="chip"><span class="chip-label">Umidit&agrave;</span> <b id="vRh">--</b></div>
+          <div id="chipRelay" class="chip relay"><span class="dot" aria-hidden="true"></span><span id="vRelay">--</span></div>
+        </div>
+      </div>
+      <div class="mode-line">
+        <span id="badgeMode" class="badge">--</span>
+        <span id="badgeSeason" class="badge soft">--</span>
+      </div>
+      <dl class="facts">
+        <div><dt>Temperatura obiettivo</dt><dd id="vSetpoint">--</dd></div>
+        <div><dt>Alimentazione</dt><dd id="vPower">--</dd></div>
+        <div><dt>Segnale GSM</dt><dd><span id="gsmBars" class="bars b0" aria-hidden="true"><i></i><i></i><i></i><i></i></span> <span id="vGsm">--</span></dd></div>
+        <div><dt>Numero SIM</dt><dd id="vSim">--</dd></div>
+        <div><dt>Ora del termostato</dt><dd id="vDevTime">--</dd></div>
+      </dl>
+      <div id="extraBox" class="extra" hidden>
+        <p class="muted small-text">Altri valori ricevuti</p>
+        <ul id="extraList"></ul>
+      </div>
+      <p id="staleWarn" class="note warn" hidden></p>
+      <p id="powerWarn" class="note danger" hidden>Il termostato ha segnalato <b>assenza di alimentazione</b>.</p>
+    </div>
+  </section>
+
+  <!-- FUNZIONAMENTO -->
+  <section class="card">
+    <h2>Funzionamento</h2>
+    <div class="timer-row">
+      <label for="timerVal">Durata (facoltativa)</label>
+      <input id="timerVal" type="number" inputmode="numeric" min="1" max="99" step="1" placeholder="&mdash;">
+      <select id="timerUnit" aria-label="Unit&agrave; di durata">
+        <option value="H">ore</option>
+        <option value="G">giorni</option>
+      </select>
+    </div>
+    <div class="mode-btns" role="group" aria-label="Scegli il funzionamento">
+      <button class="btn mode" type="button" data-mode="off">Spegni</button>
+      <button class="btn mode" type="button" data-mode="manual">Manuale</button>
+      <button class="btn mode" type="button" data-mode="auto">Automatico</button>
+    </div>
+    <p id="modeHint" class="hint">Spento: il termostato mantiene solo la temperatura antigelo. Manuale: segue la temperatura Tm. Automatico: segue il programma orario.</p>
+
+    <h3>Stagione</h3>
+    <div class="seg" role="group" aria-label="Riscaldamento o condizionamento">
+      <button class="btn seg-btn" type="button" data-season="heat">Riscaldamento</button>
+      <button class="btn seg-btn" type="button" data-season="cool">Condizionamento</button>
+    </div>
+  </section>
+
+  <!-- TEMPERATURE -->
+  <section class="card">
+    <h2>Temperature</h2>
+
+    <div class="trow" data-key="tm">
+      <div class="tlabel">
+        <label for="in-tm">Manuale <span class="tag">Tm</span></label>
+        <span class="muted small-text" id="known-tm"></span>
+      </div>
+      <div class="stepper">
+        <button type="button" class="step" data-step="-0.5" data-for="in-tm" aria-label="Diminuisci Tm">&minus;</button>
+        <input id="in-tm" type="number" inputmode="decimal" step="0.5" min="2" max="50" data-key="tm">
+        <button type="button" class="step" data-step="0.5" data-for="in-tm" aria-label="Aumenta Tm">+</button>
+      </div>
+      <button type="button" class="btn small send" id="send-tm" disabled>Invia</button>
+    </div>
+
+    <div class="trow" data-key="t0">
+      <div class="tlabel">
+        <label for="in-t0">Antigelo <span class="tag">T0</span></label>
+        <span class="muted small-text" id="known-t0"></span>
+      </div>
+      <div class="stepper">
+        <button type="button" class="step" data-step="-0.5" data-for="in-t0" aria-label="Diminuisci T0">&minus;</button>
+        <input id="in-t0" type="number" inputmode="decimal" step="0.5" min="1" max="50" data-key="t0">
+        <button type="button" class="step" data-step="0.5" data-for="in-t0" aria-label="Aumenta T0">+</button>
+      </div>
+      <button type="button" class="btn small send" id="send-t0" disabled>Invia</button>
+    </div>
+    <div class="subrow">
+      <button type="button" class="btn link danger-text" id="btnT0Off">Disattiva antigelo&hellip;</button>
+    </div>
+
+    <h3>Programma automatico</h3>
+    <p class="hint">Ogni ora del programma usa una di queste tre temperature. Deve valere T1 &le; T2 &le; T3. Modifichi solo quelle che vuoi cambiare: verranno inviate in un unico SMS.</p>
+    <div class="trow" data-key="t1">
+      <div class="tlabel"><label for="in-t1">Bassa <span class="tag">T1</span></label><span class="muted small-text" id="known-t1"></span></div>
+      <div class="stepper">
+        <button type="button" class="step" data-step="-0.5" data-for="in-t1" aria-label="Diminuisci T1">&minus;</button>
+        <input id="in-t1" type="number" inputmode="decimal" step="0.5" min="2" max="50" data-key="t1">
+        <button type="button" class="step" data-step="0.5" data-for="in-t1" aria-label="Aumenta T1">+</button>
+      </div>
+    </div>
+    <div class="trow" data-key="t2">
+      <div class="tlabel"><label for="in-t2">Media <span class="tag">T2</span></label><span class="muted small-text" id="known-t2"></span></div>
+      <div class="stepper">
+        <button type="button" class="step" data-step="-0.5" data-for="in-t2" aria-label="Diminuisci T2">&minus;</button>
+        <input id="in-t2" type="number" inputmode="decimal" step="0.5" min="2" max="50" data-key="t2">
+        <button type="button" class="step" data-step="0.5" data-for="in-t2" aria-label="Aumenta T2">+</button>
+      </div>
+    </div>
+    <div class="trow" data-key="t3">
+      <div class="tlabel"><label for="in-t3">Alta <span class="tag">T3</span></label><span class="muted small-text" id="known-t3"></span></div>
+      <div class="stepper">
+        <button type="button" class="step" data-step="-0.5" data-for="in-t3" aria-label="Diminuisci T3">&minus;</button>
+        <input id="in-t3" type="number" inputmode="decimal" step="0.5" min="2" max="50" data-key="t3">
+        <button type="button" class="step" data-step="0.5" data-for="in-t3" aria-label="Aumenta T3">+</button>
+      </div>
+    </div>
+    <button type="button" class="btn primary wide" id="send-t123" disabled>Invia T1 / T2 / T3 modificate</button>
+    <p class="hint">I programmi orari (P1&ndash;P7: quali ore usano T1, T2 o T3) non si possono cambiare via SMS: si modificano solo dal display del termostato.</p>
+  </section>
+
+  <!-- AVANZATE -->
+  <section class="card">
+    <details id="advanced">
+      <summary>Impostazioni avanzate del termostato</summary>
+
+      <h3>Rubrica del termostato</h3>
+      <p class="hint">Fino a 5 numeri. Chi &egrave; in rubrica pu&ograve; comandare il termostato senza password e riceve gli allarmi.</p>
+      <ul id="rubricaList" class="plain-list"></ul>
+      <div class="inline-form">
+        <select id="rubIdx" aria-label="Posizione in rubrica"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+        <input id="rubNum" type="tel" inputmode="tel" autocomplete="off" placeholder="Numero, es. +39333&hellip;">
+        <button type="button" class="btn small" id="btnRubSet">Salva</button>
+      </div>
+      <div class="row gap">
+        <button type="button" class="btn small ghost" id="btnRubList">Leggi rubrica</button>
+        <button type="button" class="btn small ghost danger-text" id="btnRubDel">Cancella posizione&hellip;</button>
+      </div>
+
+      <h3>Allarmi</h3>
+      <p class="hint">Temperatura minima e massima: scatta l&rsquo;allarme dopo il ritardo indicato; rientra quando la temperatura supera soglia &plusmn; isteresi.</p>
+      <div class="alarm-grid">
+        <div class="alarm-col">
+          <h4>Minima</h4>
+          <label>Soglia &deg;C <input id="alMinS" type="number" inputmode="decimal" step="0.5" value="5"></label>
+          <label>Isteresi &deg;C <input id="alMinH" type="number" inputmode="decimal" step="0.5" value="1"></label>
+          <label>Ritardo (min) <input id="alMinD" type="number" inputmode="numeric" step="1" value="10"></label>
+          <button type="button" class="btn small" id="btnAlMin">Imposta minima</button>
+        </div>
+        <div class="alarm-col">
+          <h4>Massima</h4>
+          <label>Soglia &deg;C <input id="alMaxS" type="number" inputmode="decimal" step="0.5" value="30"></label>
+          <label>Isteresi &deg;C <input id="alMaxH" type="number" inputmode="decimal" step="0.5" value="1"></label>
+          <label>Ritardo (min) <input id="alMaxD" type="number" inputmode="numeric" step="1" value="10"></label>
+          <button type="button" class="btn small" id="btnAlMax">Imposta massima</button>
+        </div>
+      </div>
+
+      <h4>A chi inviare gli allarmi (posizioni di rubrica)</h4>
+      <p class="hint">Ogni invio sostituisce i destinatari precedenti: seleziona tutti quelli che vuoi.</p>
+      <div class="recip" data-kind="min"><span class="rl">Minima</span><span class="checks"></span><button type="button" class="btn small" data-send-recip="min">Invia</button></div>
+      <div class="recip" data-kind="max"><span class="rl">Massima</span><span class="checks"></span><button type="button" class="btn small" data-send-recip="max">Invia</button></div>
+      <div class="recip" data-kind="power"><span class="rl">Mancanza corrente</span><span class="checks"></span><button type="button" class="btn small" data-send-recip="power">Invia</button></div>
+      <p class="note warn">Nell&rsquo;uso reale di questo termostato l&rsquo;avviso di <b>mancanza corrente</b> arriva quando la corrente <b>torna</b>, non nel momento del blackout.</p>
+
+      <h3>Messaggi non riconosciuti</h3>
+      <div class="inline-form">
+        <select id="fwdIdx" aria-label="Inoltra alla posizione"><option value="1">Posizione 1</option><option value="2">Posizione 2</option><option value="3">Posizione 3</option><option value="4">Posizione 4</option><option value="5">Posizione 5</option><option value="none">Nessuno</option></select>
+        <button type="button" class="btn small" id="btnFwd">Imposta inoltro</button>
+      </div>
+
+      <h3>Orologio e SIM</h3>
+      <div class="inline-form">
+        <input id="simNum" type="tel" inputmode="tel" autocomplete="off" placeholder="Numero della SIM nel termostato">
+        <button type="button" class="btn small" id="btnSim">Comunica numero</button>
+      </div>
+      <div class="row gap">
+        <button type="button" class="btn small ghost" id="btnClock">Sincronizza orologio</button>
+      </div>
+
+      <h3>Contaore impianto</h3>
+      <p id="counterVal" class="hint">Ore di funzionamento: non ancora lette.</p>
+      <div class="row gap">
+        <button type="button" class="btn small ghost" id="btnCounter">Leggi contaore</button>
+        <button type="button" class="btn small ghost danger-text" id="btnCounterReset">Azzera&hellip;</button>
+      </div>
+
+      <h3>Password SMS del termostato</h3>
+      <div class="inline-form">
+        <input id="newPwd" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Nuova, 4 cifre">
+        <button type="button" class="btn small danger-text" id="btnPwd">Cambia&hellip;</button>
+      </div>
+    </details>
+  </section>
+
+  <!-- RISPOSTA -->
+  <section class="card" id="pasteCard">
+    <h2>Risposta del termostato</h2>
+    <p class="hint">Dopo aver inviato un SMS, copia la risposta ricevuta e incollala qui. Su iPhone si pu&ograve; automatizzare (vedi guida).</p>
+    <textarea id="pasteArea" rows="3" placeholder="Es. INT=23.6 C RH=58.0 % CRONO=MANUALE(RISC) TM=9.2 C RELE=SPENTO &hellip;" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+    <div class="row gap">
+      <button type="button" class="btn primary" id="btnPasteClip">Incolla dagli appunti</button>
+      <button type="button" class="btn" id="btnImport">Importa testo</button>
+    </div>
+    <p id="importMsg" class="note" hidden></p>
+  </section>
+
+  <!-- REGISTRO -->
+  <section class="card">
+    <details id="logBox">
+      <summary>Registro messaggi</summary>
+      <ul id="logList" class="log"></ul>
+      <div class="row gap">
+        <button type="button" class="btn small ghost" id="btnLogClear">Svuota registro</button>
+      </div>
+    </details>
+  </section>
+
+  <!-- IMPOSTAZIONI APP -->
+  <section class="card">
+    <details id="settings">
+      <summary>Impostazioni dell&rsquo;app</summary>
+      <p class="hint">Questi dati restano <b>solo in questo telefono</b>. Non vengono inviati a nessun server.</p>
+      <label class="field">Numero di telefono del termostato
+        <input id="setNumber" type="tel" inputmode="tel" autocomplete="off" placeholder="es. +393331234567">
+      </label>
+      <label class="field">Password SMS (4 cifre, di fabbrica 1234)
+        <input id="setPwd" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="1234">
+      </label>
+      <label class="check">
+        <input id="setUsePwd" type="checkbox">
+        <span>Scrivi la password in ogni SMS (serve solo se il tuo numero <b>non</b> &egrave; in rubrica nel termostato)</span>
+      </label>
+      <div class="row gap">
+        <button type="button" class="btn primary" id="btnSaveSettings">Salva</button>
+        <button type="button" class="btn ghost danger-text" id="btnWipe">Cancella tutti i dati&hellip;</button>
+      </div>
+      <p id="appVersion" class="muted small-text"></p>
+    </details>
+  </section>
+
+  <p class="footer muted small-text">App non ufficiale, non affiliata a Vemer. Il termostato risponde solo a SMS inviati dal tuo telefono.</p>
+</div>
+
+<!-- CONFERMA INVIO -->
+<div id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle" hidden>
+  <div class="sheet">
+    <h2 id="mTitle">Conferma invio</h2>
+    <p class="muted small-text">Destinatario</p>
+    <p id="mTo" class="to"></p>
+    <p class="muted small-text">Messaggio che verr&agrave; scritto</p>
+    <pre id="mBody" class="sms-preview"></pre>
+    <ul id="mSummary" class="summary"></ul>
+    <div id="mWarn"></div>
+    <p class="small-text muted">Si apre l&rsquo;app Messaggi con il testo gi&agrave; pronto: dovrai premere Invio l&igrave;.</p>
+    <div class="row gap end">
+      <button type="button" id="mCancel" class="btn ghost">Annulla</button>
+      <button type="button" id="mConfirm" class="btn primary">Conferma e apri Messaggi</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="lib.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
