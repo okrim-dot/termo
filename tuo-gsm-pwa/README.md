@@ -40,21 +40,5 @@ Tutto ciò che il manuale permette via SMS: funzionamento (spento / manuale / au
 
 **Non modificabili via SMS** (il manuale non prevede comandi): i programmi orari P1–P7, la retroilluminazione, il differenziale e il tipo di regolazione. Si cambiano solo dal display del termostato.
 
-## Cose da sapere / non verificate
-
-- Il formato delle risposte è stato ricavato dai sei esempi reali forniti. Le risposte non ancora viste (modo automatico, `COUNTER`, allarmi) sono interpretate in modo tollerante; i valori che l'app non riconosce compaiono sotto *Altri valori ricevuti* e nel *Registro messaggi*, così si può correggere il parser.
-- `CRONO INFO TUTTO` **non restituisce T1/T2/T3**: l'app mostra l'ultimo valore noto (da una risposta a un tuo comando) oppure "valore non noto".
-- L'invio di più comandi in un solo SMS (T1/T2/T3 insieme) è previsto dal manuale (max 3) ma non è stato provato sul dispositivo: al primo uso prova con due valori.
-- L'avviso di **mancanza corrente** del termostato arriva, nell'uso reale, solo al ritorno della corrente. L'app non può cambiarlo.
-- Il termostato usa solo la rete 2G/GSM: se l'operatore la spegne nella zona, smette di funzionare (app inclusa).
-
-## Struttura dei file
-
-| File | Ruolo |
-|---|---|
-| `index.html`, `style.css`, `app.js` | interfaccia |
-| `lib.js` | interpretazione risposte e costruzione/validazione comandi (nessuna dipendenza) |
-| `sw.js`, `manifest.webmanifest`, `icons/` | installazione e uso offline |
-| `test/test-lib.js` | test della libreria: `node test/test-lib.js` |
 
 App non ufficiale, non affiliata a Vemer S.p.A.
