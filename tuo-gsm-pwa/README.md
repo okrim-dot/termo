@@ -12,16 +12,6 @@ Una web app non può né inviare né leggere SMS da sola (iOS e Android non lo p
 
 La richiesta di sola lettura (**Aggiorna** = `CRONO INFO TUTTO`) salta il pop-up: l'SMS comunque parte solo dopo il tuo Invio in Messaggi.
 
-## Pubblicazione gratuita su GitHub Pages
-
-1. Crea un repository **pubblico** su GitHub (le Pages gratuite lo richiedono) e carica tutti i file di questa cartella.
-2. *Settings → Pages → Build and deployment → Deploy from a branch → main / (root) → Save*.
-3. Dopo un minuto l'app è su `https://TUO-UTENTE.github.io/NOME-REPO/`.
-
-**Non scrivere mai nel codice numeri di telefono o password.** Si inseriscono dall'interfaccia (*Impostazioni dell'app*) e restano solo nella memoria del telefono ([localStorage](https://it.wikipedia.org/wiki/Web_storage)). L'app non fa richieste di rete verso altri siti (lo impone anche una [Content Security Policy](https://it.wikipedia.org/wiki/Content_Security_Policy)).
-
-In alternativa puoi servire la cartella dal tuo server Proxmox: serve però HTTPS valido e raggiungibile dall'esterno.
-
 ## Installazione sul telefono
 
 - **iPhone (Safari)**: Condividi → *Aggiungi alla schermata Home*.
